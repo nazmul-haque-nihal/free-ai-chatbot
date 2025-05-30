@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 import os
 import requests
 from retry import retry
@@ -7,14 +7,29 @@ from dotenv import load_dotenv
 app = Flask(__name__, static_folder='.', static_url_path='')
 load_dotenv()
 
-# API Configuration for OpenRouter (ChatGPT and DeepSeek)
+@app.route('/debug-files')
+def debug_files():
+    files = os.listdir('.')
+    return jsonify(files)
+
+@app.route('/')
+def serve_index():
+    print(f"Current directory: {os.getcwd()}")
+    print(f"Files in current directory: {os.listdir('.')}")
+    if os.path.exists('index.html'):
+        print("index.html found, serving file")
+        return send_from_directory('.', 'index.html')
+    else:
+        print("index.html not found")
+        return "index.html not found", 404
+
 API_CONFIG = {
     'deepseek': {
         'url': 'https://openrouter.ai/api/v1/chat/completions',
         'headers': lambda: {
             'Authorization': f'Bearer {os.getenv("OPENROUTER_API_KEY")}',
             'Content-Type': 'application/json',
-            'HTTP-Referer': os.getenv('RENDER_EXTERNAL_HOSTNAME', 'https://your-app-name.onrender.com'),
+            'HTTP-Referer': os.getenv('RENDER_EXTERNAL_HOSTNAME', 'https://nazmul-ai-chatbot.onrender.com'),
             'X-Title': 'Free AI Chatbot'
         },
         'model': 'deepseek/r-1',
@@ -24,7 +39,7 @@ API_CONFIG = {
         'headers': lambda: {
             'Authorization': f'Bearer {os.getenv("OPENROUTER_API_KEY")}',
             'Content-Type': 'application/json',
-            'HTTP-Referer': os.getenv('RENDER_EXTERNAL_HOSTNAME', 'https://your-app-name.onrender.com'),
+            'HTTP-Referer': os.getenv('RENDER_EXTERNAL_HOSTNAME', 'https://nazmul-ai-chatbot.onrender.com'),
             'X-Title': 'Free AI Chatbot'
         },
         'model': 'openai/gpt-3.5-turbo',
@@ -36,16 +51,13 @@ def call_api(ai, message):
     config = API_CONFIG.get(ai)
     if not config:
         return {'error': 'Invalid AI model selected'}
-
     if not os.getenv("OPENROUTER_API_KEY"):
         return {'error': 'OpenRouter API key is missing. Please configure it.'}
-
     payload = {
         'model': config['model'],
         'messages': [{'role': 'user', 'content': message}],
         'temperature': 1.0,
     }
-
     try:
         response = requests.post(config['url'], json=payload, headers=config['headers']())
         response.raise_for_status()
@@ -58,18 +70,12 @@ def chat():
     data = request.get_json()
     message = data.get('message', '')
     ai = data.get('ai', 'deepseek')
-
     if not message:
         return jsonify({'error': 'No message provided'}), 400
-
     response = call_api(ai, message)
     if isinstance(response, dict) and 'error' in response:
         return jsonify(response), 500
     return jsonify({'response': response})
-
-@app.route('/')
-def serve_index():
-    return app.send_static_file('index.html')
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 10000))
