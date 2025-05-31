@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, Response, send_from_directory
 import os
 import base64
 from openai import OpenAI
@@ -43,35 +43,42 @@ def chat():
     try:
         if image_file:
             image_base64 = encode_image(image_file)
-            payload = {
-                "model": "google/gemma-3n-e4b-it:free",
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": message} if message else {"type": "text", "text": "Describe this image"},
-                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
-                        ]
-                    }
-                ]
-            }
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": message} if message else {"type": "text", "text": "Describe this image"},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
+                    ]
+                }
+            ]
         else:
-            payload = {
-                "model": "google/gemma-3n-e4b-it:free",
-                "messages": [{"role": "user", "content": message}]
-            }
+            messages = [{"role": "user", "content": message}]
 
-        print(f"Sending payload: {payload}")
-        completion = client.chat.completions.create(
+        # Stream response from OpenRouter
+        stream = client.chat.completions.create(
             extra_headers={
                 "HTTP-Referer": os.getenv('RENDER_EXTERNAL_HOSTNAME', 'https://nazmul-ai-chatbot.onrender.com'),
                 "X-Title": "SPD Bot for Engineers"
             },
             extra_body={},
-            **payload
+            model="google/gemma-3n-e4b-it:free",
+            messages=messages,
+            stream=True
         )
-        print(f"Received response: {completion.choices[0].message.content}")
-        return jsonify({'response': completion.choices[0].message.content})
+
+        # Stream chunks to the client
+        def generate():
+            full_response = ""
+            for chunk in stream:
+                if chunk.choices[0].delta.content is not None:
+                    content = chunk.choices[0].delta.content
+                    full_response += content
+                    yield f"data: {content}\n\n"
+            yield "data: [DONE]\n\n"
+
+        return Response(generate(), mimetype='text/event-stream')
+
     except Exception as e:
         return jsonify({'error': f'API call failed: {str(e)}'}), 500
 

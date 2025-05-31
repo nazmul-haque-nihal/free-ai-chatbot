@@ -109,6 +109,7 @@
         const toggleHistory = document.getElementById('toggleHistory');
         const historySection = document.getElementById('historySection');
         let history = [];
+        let currentBotMessage = null;
 
         // Toggle history visibility
         toggleHistory.addEventListener('click', () => {
@@ -136,21 +137,19 @@
                 formData.append('image', file);
                 formData.append('message', messageInput.value || '');
 
-                fetch('/chat', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        addMessage('Gemma', data.error, 'gemma-bubble', 'text-red-500');
-                    } else {
-                        addMessage('Gemma', data.response, 'gemma-bubble');
-                    }
-                })
-                .catch(error => {
-                    addMessage('Gemma', 'Error: Could not connect to the server', 'gemma-bubble', 'text-red-500');
-                });
+                // Display user message
+                const message = messageInput.value.trim();
+                if (message) {
+                    addMessage('Nihal', message, 'nihal-bubble');
+                    history.push(`Nihal: ${message}`);
+                }
+                addMessage('Nihal', 'Image uploaded', 'nihal-bubble');
+                history.push(`Nihal: Image uploaded`);
+                messageInput.value = '';
+                imageInput.value = '';
+
+                // Start streaming
+                streamMessage(formData);
             }
         });
 
@@ -158,6 +157,7 @@
             const message = messageInput.value.trim();
             if (!message && !imageInput.files.length) return;
 
+            // Display user message
             addMessage('Nihal', message, 'nihal-bubble');
             history.push(`Nihal: ${message}`);
             messageInput.value = '';
@@ -169,28 +169,55 @@
                 formData.append('image', imageInput.files[0]);
             }
 
-            fetch('/chat', {
+            // Start streaming
+            streamMessage(formData);
+        }
+
+        function streamMessage(formData) {
+            const source = new EventSource('/chat', {
                 method: 'POST',
                 body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    addMessage('Gemma', data.error, 'gemma-bubble', 'text-red-500');
-                } else {
-                    addMessage('Gemma', data.response, 'gemma-bubble');
-                    history.push(`Gemma: ${data.response}`);
-                }
-            })
-            .catch(error => {
-                addMessage('Gemma', 'Error: Could not connect to the server', 'gemma-bubble', 'text-red-500');
             });
+
+            // Create a placeholder for the bot's response
+            currentBotMessage = null;
+            addMessage('Gemma', '', 'gemma-bubble');
+
+            source.onmessage = (event) => {
+                if (event.data === '[DONE]') {
+                    source.close();
+                    history.push(`Gemma: ${currentBotMessage.textContent}`);
+                    currentBotMessage = null;
+                    return;
+                }
+
+                if (!currentBotMessage) {
+                    const messages = chatWindow.getElementsByClassName('gemma-bubble');
+                    currentBotMessage = messages[messages.length - 1];
+                }
+
+                currentBotMessage.textContent += event.data;
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            };
+
+            source.onerror = () => {
+                source.close();
+                if (currentBotMessage) {
+                    currentBotMessage.textContent = 'Gemma: Error: Could not connect to the server';
+                    currentBotMessage.classList.add('text-red-500');
+                    history.push(`Gemma: Error: Could not connect to the server`);
+                } else {
+                    addMessage('Gemma', 'Error: Could not connect to the server', 'gemma-bubble', 'text-red-500');
+                    history.push(`Gemma: Error: Could not connect to the server`);
+                }
+                currentBotMessage = null;
+            };
         }
 
         function addMessage(sender, text, bubbleClass, extraClass = '') {
             const div = document.createElement('div');
             div.className = `chat-bubble ${bubbleClass} ${extraClass}`;
-            div.textContent = `${sender}: ${text || 'Image uploaded'}`;
+            div.textContent = `${sender}: ${text || ''}`;
             chatWindow.appendChild(div);
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }
