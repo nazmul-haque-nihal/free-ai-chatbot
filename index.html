@@ -173,45 +173,62 @@
             streamMessage(formData);
         }
 
-        function streamMessage(formData) {
-            const source = new EventSource('/chat', {
-                method: 'POST',
-                body: formData
-            });
+        async function streamMessage(formData) {
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    body: formData
+                });
 
-            // Create a placeholder for the bot's response
-            currentBotMessage = null;
-            addMessage('Gemma', '', 'gemma-bubble');
-
-            source.onmessage = (event) => {
-                if (event.data === '[DONE]') {
-                    source.close();
-                    history.push(`Gemma: ${currentBotMessage.textContent}`);
-                    currentBotMessage = null;
-                    return;
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
                 }
 
-                if (!currentBotMessage) {
-                    const messages = chatWindow.getElementsByClassName('gemma-bubble');
-                    currentBotMessage = messages[messages.length - 1];
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullResponse = '';
+
+                // Create a placeholder for the bot's response
+                currentBotMessage = null;
+                addMessage('Gemma', '', 'gemma-bubble');
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        history.push(`Gemma: ${fullResponse}`);
+                        currentBotMessage = null;
+                        break;
+                    }
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n\n');
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.replace('data: ', '');
+                            if (data === '[DONE]') continue;
+
+                            if (!currentBotMessage) {
+                                const messages = chatWindow.getElementsByClassName('gemma-bubble');
+                                currentBotMessage = messages[messages.length - 1];
+                            }
+
+                            currentBotMessage.textContent += data;
+                            fullResponse += data;
+                            chatWindow.scrollTop = chatWindow.scrollHeight;
+                        }
+                    }
                 }
-
-                currentBotMessage.textContent += event.data;
-                chatWindow.scrollTop = chatWindow.scrollHeight;
-            };
-
-            source.onerror = () => {
-                source.close();
+            } catch (error) {
                 if (currentBotMessage) {
-                    currentBotMessage.textContent = 'Gemma: Error: Could not connect to the server';
+                    currentBotMessage.textContent = `Gemma: Error: ${error.message}`;
                     currentBotMessage.classList.add('text-red-500');
-                    history.push(`Gemma: Error: Could not connect to the server`);
+                    history.push(`Gemma: Error: ${error.message}`);
                 } else {
-                    addMessage('Gemma', 'Error: Could not connect to the server', 'gemma-bubble', 'text-red-500');
-                    history.push(`Gemma: Error: Could not connect to the server`);
+                    addMessage('Gemma', `Error: ${error.message}`, 'gemma-bubble', 'text-red-500');
+                    history.push(`Gemma: Error: ${error.message}`);
                 }
                 currentBotMessage = null;
-            };
+            }
         }
 
         function addMessage(sender, text, bubbleClass, extraClass = '') {

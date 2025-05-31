@@ -77,7 +77,11 @@ def chat():
                     yield f"data: {content}\n\n"
             yield "data: [DONE]\n\n"
 
-        return Response(generate(), mimetype='text/event-stream')
+        return Response(generate(), mimetype='text/event-stream', headers={
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'  # Disable buffering in Render/nginx
+        })
 
     except Exception as e:
         return jsonify({'error': f'API call failed: {str(e)}'}), 500
