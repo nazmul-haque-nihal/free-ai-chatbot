@@ -24,7 +24,7 @@ def serve_index():
         return "index.html not found", 404
 
 API_CONFIG = {
-    'deepseek': {
+    'gemma': {
         'url': 'https://openrouter.ai/api/v1/chat/completions',
         'headers': lambda: {
             'Authorization': f'Bearer {os.getenv("OPENROUTER_API_KEY")}',
@@ -32,18 +32,8 @@ API_CONFIG = {
             'HTTP-Referer': os.getenv('RENDER_EXTERNAL_HOSTNAME', 'https://nazmul-ai-chatbot.onrender.com'),
             'X-Title': 'Free AI Chatbot'
         },
-        'model': 'deepseek/r-1',
-    },
-    'chatgpt': {
-        'url': 'https://openrouter.ai/api/v1/chat/completions',
-        'headers': lambda: {
-            'Authorization': f'Bearer {os.getenv("OPENROUTER_API_KEY")}',
-            'Content-Type': 'application/json',
-            'HTTP-Referer': os.getenv('RENDER_EXTERNAL_HOSTNAME', 'https://nazmul-ai-chatbot.onrender.com'),
-            'X-Title': 'Free AI Chatbot'
-        },
-        'model': 'openai/gpt-3.5-turbo',
-    },
+        'model': 'google/gemma-3-4b:free',
+    }
 }
 
 @retry(tries=3, delay=1, backoff=2)
@@ -69,7 +59,7 @@ def call_api(ai, message):
 def chat():
     data = request.get_json()
     message = data.get('message', '')
-    ai = data.get('ai', 'deepseek')
+    ai = data.get('ai', 'gemma')
     if not message:
         return jsonify({'error': 'No message provided'}), 400
     response = call_api(ai, message)
