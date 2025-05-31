@@ -1,100 +1,196 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Free AI Chatbot</title>
+    <title>SPD Bot for Engineers</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Cloudy sky background with gradient */
+        body {
+            background: linear-gradient(180deg, #1a1a2e 0%, #2c2c54 50%, #4a4e69 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Huge black bolt shock animation */
+        .shock-bolt {
+            position: absolute;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 10px;
+            height: 200px;
+            background: #000;
+            clip-path: polygon(50% 0%, 70% 20%, 60% 40%, 80% 60%, 50% 80%, 20% 60%, 40% 40%, 30% 20%);
+            animation: shock 3s ease-in-out infinite;
+            opacity: 0;
+            z-index: 10;
+        }
+
+        @keyframes shock {
+            0% { opacity: 0; height: 0; }
+            10% { opacity: 0.9; height: 200px; }
+            20% { opacity: 0.7; }
+            30% { opacity: 0.4; }
+            100% { opacity: 0; height: 0; }
+        }
+
+        /* Black clouds (static overlay) */
+        .cloud {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 50%;
+            animation: float 20s linear infinite;
+        }
+
+        .cloud:nth-child(1) { width: 200px; height: 100px; top: 10%; left: 10%; }
+        .cloud:nth-child(2) { width: 150px; height: 80px; top: 20%; left: 60%; }
+        .cloud:nth-child(3) { width: 180px; height: 90px; top: 40%; left: 30%; }
+
+        @keyframes float {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0); }
+        }
+
+        /* Chat bubble styling */
+        .chat-bubble {
+            max-width: 80%;
+            margin-bottom: 10px;
+            padding: 10px 15px;
+            border-radius: 15px;
+            word-wrap: break-word;
+        }
+
+        .nihal-bubble {
+            background-color: #4a90e2;
+            margin-left: auto;
+        }
+
+        .gemma-bubble {
+            background-color: #2d3748;
+        }
+    </style>
 </head>
-<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
-    <div class="w-full max-w-md p-4">
-        <h1 class="text-2xl font-bold mb-4 text-center">Free AI Chatbot (Gemma 3N 4B)</h1>
-        <div id="chatWindow" class="h-64 overflow-y-auto p-2 bg-gray-800 border border-gray-700 rounded mb-4">
+<body class="text-white flex items-center justify-center min-h-screen">
+    <!-- Black clouds -->
+    <div class="cloud"></div>
+    <div class="cloud"></div>
+    <div class="cloud"></div>
+    <!-- Huge shock bolt -->
+    <div class="shock-bolt"></div>
+
+    <div class="w-full max-w-md p-4 flex flex-col h-[90vh]">
+        <h1 class="text-3xl font-extrabold mb-4 text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-600">
+            SPD Bot for Engineers
+        </h1>
+        <button id="toggleHistory" class="mb-2 p-2 bg-gray-700 rounded-lg hover:bg-gray-600">Toggle History</button>
+        <div id="historySection" class="hidden mb-4 p-2 bg-gray-800 bg-opacity-80 rounded-lg overflow-y-auto max-h-40">
+            <!-- History will be inserted here -->
+        </div>
+        <div id="chatWindow" class="flex-1 overflow-y-auto p-4 bg-gray-800 bg-opacity-80 rounded-lg shadow-lg mb-4">
             <!-- Chat messages will be inserted here -->
         </div>
-        <div class="flex">
-            <input id="messageInput" type="text" class="flex-1 p-2 bg-gray-800 border border-gray-700 rounded-l" placeholder="Type your message...">
-            <button id="sendButton" class="p-2 bg-blue-600 text-white rounded-r">Send</button>
+        <div class="flex space-x-2">
+            <input id="imageInput" type="file" accept="image/*" class="hidden">
+            <input id="messageInput" type="text" class="flex-1 p-3 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-400" placeholder="Type your message or upload image...">
+            <button id="uploadButton" class="p-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">Upload</button>
+            <button id="sendButton" class="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Send</button>
         </div>
     </div>
+
     <script>
         const chatWindow = document.getElementById('chatWindow');
         const messageInput = document.getElementById('messageInput');
         const sendButton = document.getElementById('sendButton');
+        const imageInput = document.getElementById('imageInput');
+        const uploadButton = document.getElementById('uploadButton');
+        const toggleHistory = document.getElementById('toggleHistory');
+        const historySection = document.getElementById('historySection');
+        let history = [];
 
+        // Toggle history visibility
+        toggleHistory.addEventListener('click', () => {
+            historySection.classList.toggle('hidden');
+            if (!historySection.classList.contains('hidden')) {
+                historySection.innerHTML = history.map(msg => `<p>${msg}</p>`).join('');
+            }
+        });
+
+        // Handle send button
         sendButton.addEventListener('click', sendMessage);
         messageInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') sendMessage();
         });
 
+        // Handle upload button
+        uploadButton.addEventListener('click', () => {
+            imageInput.click();
+        });
+
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const formData = new FormData();
+                formData.append('image', file);
+                formData.append('message', messageInput.value || '');
+
+                fetch('/chat', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        addMessage('Gemma', data.error, 'gemma-bubble', 'text-red-500');
+                    } else {
+                        addMessage('Gemma', data.response, 'gemma-bubble');
+                    }
+                })
+                .catch(error => {
+                    addMessage('Gemma', 'Error: Could not connect to the server', 'gemma-bubble', 'text-red-500');
+                });
+            }
+        });
+
         function sendMessage() {
             const message = messageInput.value.trim();
-            if (!message) return;
+            if (!message && !imageInput.files.length) return;
 
-            addMessage('You', message, 'right');
+            addMessage('Nihal', message, 'nihal-bubble');
+            history.push(`Nihal: ${message}`);
             messageInput.value = '';
+            imageInput.value = '';
+
+            const formData = new FormData();
+            formData.append('message', message);
+            if (imageInput.files[0]) {
+                formData.append('image', imageInput.files[0]);
+            }
 
             fetch('/chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message, ai: 'gemma' })
+                body: formData
             })
             .then(response => response.json())
             .then(data => {
                 if (data.error) {
-                    addMessage('Bot', data.error, 'left', 'text-red-500');
+                    addMessage('Gemma', data.error, 'gemma-bubble', 'text-red-500');
                 } else {
-                    addMessage('Bot', data.response, 'left');
+                    addMessage('Gemma', data.response, 'gemma-bubble');
+                    history.push(`Gemma: ${data.response}`);
                 }
             })
             .catch(error => {
-                addMessage('Bot', 'Error: Could not connect to the server', 'left', 'text-red-500');
+                addMessage('Gemma', 'Error: Could not connect to the server', 'gemma-bubble', 'text-red-500');
             });
         }
 
-        function addMessage(sender, text, position, className = '') {
+        function addMessage(sender, text, bubbleClass, extraClass = '') {
             const div = document.createElement('div');
-            div.className = `mb-2 p-2 rounded ${position === 'right' ? 'bg-blue-500 text-white' : 'bg-gray-700'} ${className}`;
-            div.textContent = `${sender}: ${text}`;
+            div.className = `chat-bubble ${bubbleClass} ${extraClass}`;
+            div.textContent = `${sender}: ${text || 'Image uploaded'}`;
             chatWindow.appendChild(div);
             chatWindow.scrollTop = chatWindow.scrollHeight;
         }

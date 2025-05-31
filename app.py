@@ -1,9 +1,8 @@
 from flask import Flask, request, jsonify, send_from_directory
 import os
-import requests
-from retry import retry
-from dotenv import load_dotenv
+import base64
 from openai import OpenAI
+from dotenv import load_dotenv
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 load_dotenv()
@@ -30,36 +29,51 @@ def serve_index():
         print("index.html not found")
         return "index.html not found", 404
 
-@retry(tries=3, delay=1, backoff=2)
-def call_api(message):
-    try:
-        print(f"Sending request with message: {message}")
-        completion = client.chat.completions.create(
-            extra_headers={
-                "HTTP-Referer": os.getenv('RENDER_EXTERNAL_HOSTNAME', 'https://nazmul-ai-chatbot.onrender.com'),
-                "X-Title": "Free AI Chatbot"
-            },
-            extra_body={},
-            model="google/gemma-3n-e4b-it:free",
-            messages=[
-                {"role": "user", "content": message}
-            ]
-        )
-        print(f"Received response: {completion.choices[0].message.content}")
-        return completion.choices[0].message.content
-    except Exception as e:
-        return {'error': f'API call failed: {str(e)}'}
+def encode_image(image_file):
+    return base64.b64encode(image_file.read()).decode('utf-8')
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    data = request.get_json()
-    message = data.get('message', '')
-    if not message:
-        return jsonify({'error': 'No message provided'}), 400
-    response = call_api(message)
-    if isinstance(response, dict) and 'error' in response:
-        return jsonify(response), 500
-    return jsonify({'response': response})
+    if 'message' not in request.form and 'image' not in request.files:
+        return jsonify({'error': 'No message or image provided'}), 400
+
+    message = request.form.get('message', '')
+    image_file = request.files.get('image')
+
+    try:
+        if image_file:
+            image_base64 = encode_image(image_file)
+            payload = {
+                "model": "google/gemma-3n-e4b-it:free",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": message} if message else {"type": "text", "text": "Describe this image"},
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}
+                        ]
+                    }
+                ]
+            }
+        else:
+            payload = {
+                "model": "google/gemma-3n-e4b-it:free",
+                "messages": [{"role": "user", "content": message}]
+            }
+
+        print(f"Sending payload: {payload}")
+        completion = client.chat.completions.create(
+            extra_headers={
+                "HTTP-Referer": os.getenv('RENDER_EXTERNAL_HOSTNAME', 'https://nazmul-ai-chatbot.onrender.com'),
+                "X-Title": "SPD Bot for Engineers"
+            },
+            extra_body={},
+            **payload
+        )
+        print(f"Received response: {completion.choices[0].message.content}")
+        return jsonify({'response': completion.choices[0].message.content})
+    except Exception as e:
+        return jsonify({'error': f'API call failed: {str(e)}'}), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 10000))
