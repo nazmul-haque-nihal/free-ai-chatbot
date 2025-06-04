@@ -5,119 +5,149 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SPD Bot for Engineers</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        /* Cloudy sky background with gradient */
+        /* Matrix theme with black background */
         body {
-            background: linear-gradient(180deg, #1a1a2e 0%, #2c2c54 50%, #4a4e69 100%);
+            background: #000;
             position: relative;
             overflow: hidden;
+            font-family: 'Orbitron', sans-serif;
         }
 
-        /* Huge black bolt shock animation */
-        .shock-bolt {
+        /* Matrix digital rain canvas */
+        #matrixCanvas {
             position: absolute;
-            top: -100px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 10px;
-            height: 200px;
-            background: #000;
-            clip-path: polygon(50% 0%, 70% 20%, 60% 40%, 80% 60%, 50% 80%, 20% 60%, 40% 40%, 30% 20%);
-            animation: shock 3s ease-in-out infinite;
-            opacity: 0;
-            z-index: 10;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.7;
         }
 
-        @keyframes shock {
-            0% { opacity: 0; height: 0; }
-            10% { opacity: 0.9; height: 200px; }
-            20% { opacity: 0.7; }
-            30% { opacity: 0.4; }
-            100% { opacity: 0; height: 0; }
+        /* Glassmorphism chat window */
+        .chat-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+            z-index: 1;
         }
 
-        /* Black clouds (static overlay) */
-        .cloud {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 50%;
-            animation: float 20s linear infinite;
-        }
-
-        .cloud:nth-child(1) { width: 200px; height: 100px; top: 10%; left: 10%; }
-        .cloud:nth-child(2) { width: 150px; height: 80px; top: 20%; left: 60%; }
-        .cloud:nth-child(3) { width: 180px; height: 90px; top: 40%; left: 30%; }
-
-        @keyframes float {
-            0% { transform: translateY(0); }
-            50% { transform: translateY(-20px); }
-            100% { transform: translateY(0); }
-        }
-
-        /* Chat bubble styling */
+        /* Chat bubble styling with neon glow (Matrix green) */
         .chat-bubble {
             max-width: 80%;
-            margin-bottom: 10px;
-            padding: 10px 15px;
-            border-radius: 15px;
-            word-wrap: break-word;
+            margin-bottom: 12px;
+            padding: 12px 18px;
+            border-radius: 20px;
+            animation: fadeIn 0.3s ease-in;
+            transition: transform 0.2s, box-shadow 0.3s;
+        }
+
+        .chat-bubble:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .nihal-bubble {
-            background-color: #4a90e2;
+            background: linear-gradient(135deg, #1a3c34, #0a2f29);
             margin-left: auto;
+            border: 1px solid #00ff00;
         }
 
         .gemma-bubble {
-            background-color: #2d3748;
+            background: linear-gradient(135deg, #1a202c, #0f1419);
+            border: 1px solid #00ff00;
+        }
+
+        /* Input field and buttons with Matrix green effects */
+        input, button {
+            transition: all 0.3s ease;
+        }
+
+        input:focus, button:hover {
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+
+        /* Matrix green text */
+        .text-matrix-green {
+            color: #00ff00;
         }
     </style>
 </head>
-<body class="text-white flex items-center justify-center min-h-screen">
-    <!-- Black clouds -->
-    <div class="cloud"></div>
-    <div class="cloud"></div>
-    <div class="cloud"></div>
-    <!-- Huge shock bolt -->
-    <div class="shock-bolt"></div>
+<body class="text-matrix-green flex items-center justify-center min-h-screen">
+    <!-- Matrix digital rain background -->
+    <canvas id="matrixCanvas"></canvas>
 
-    <div class="w-full max-w-md p-4 flex flex-col h-[90vh]">
-        <h1 class="text-3xl font-extrabold mb-4 text-center text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-600">
+    <div class="w-full max-w-4xl p-8 flex flex-col h-[90vh] chat-container rounded-2xl">
+        <h1 class="text-4xl font-bold mb-6 text-center text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-green-600">
             SPD Bot for Engineers
         </h1>
-        <button id="toggleHistory" class="mb-2 p-2 bg-gray-700 rounded-lg hover:bg-gray-600">Toggle History</button>
-        <div id="historySection" class="hidden mb-4 p-2 bg-gray-800 bg-opacity-80 rounded-lg overflow-y-auto max-h-40">
-            <!-- History will be inserted here -->
-        </div>
-        <div id="chatWindow" class="flex-1 overflow-y-auto p-4 bg-gray-800 bg-opacity-80 rounded-lg shadow-lg mb-4">
+        <div id="chatWindow" class="flex-1 overflow-y-auto p-6 rounded-lg">
             <!-- Chat messages will be inserted here -->
         </div>
-        <div class="flex space-x-2">
+        <div class="flex space-x-3 mt-4">
             <input id="imageInput" type="file" accept="image/*" class="hidden">
-            <input id="messageInput" type="text" class="flex-1 p-3 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-400" placeholder="Type your message or upload image...">
-            <button id="uploadButton" class="p-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">Upload</button>
-            <button id="sendButton" class="p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Send</button>
+            <input id="messageInput" type="text" class="flex-1 p-4 bg-gray-900 border border-green-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-400 text-matrix-green placeholder-gray-400" placeholder="Type your message or upload image...">
+            <button id="uploadButton" class="p-4 bg-green-700 text-white rounded-xl hover:bg-green-600 flex items-center justify-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+            </button>
+            <button id="sendButton" class="p-4 bg-blue-700 text-white rounded-xl hover:bg-blue-600">Send</button>
         </div>
     </div>
 
     <script>
+        // Matrix digital rain effect
+        const canvas = document.getElementById('matrixCanvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+        const fontSize = 14;
+        const columns = canvas.width / fontSize;
+        const drops = [];
+
+        for (let x = 0; x < columns; x++) {
+            drops[x] = 1;
+        }
+
+        function draw() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#00ff00';
+            ctx.font = `${fontSize}px monospace`;
+
+            for (let i = 0; i < drops.length; i++) {
+                const text = chars.charAt(Math.floor(Math.random() * chars.length));
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+        }
+
+        setInterval(draw, 33);
+
+        // Chat functionality
         const chatWindow = document.getElementById('chatWindow');
         const messageInput = document.getElementById('messageInput');
         const sendButton = document.getElementById('sendButton');
         const imageInput = document.getElementById('imageInput');
         const uploadButton = document.getElementById('uploadButton');
-        const toggleHistory = document.getElementById('toggleHistory');
-        const historySection = document.getElementById('historySection');
-        let history = [];
         let currentBotMessage = null;
-
-        // Toggle history visibility
-        toggleHistory.addEventListener('click', () => {
-            historySection.classList.toggle('hidden');
-            if (!historySection.classList.contains('hidden')) {
-                historySection.innerHTML = history.map(msg => `<p>${msg}</p>`).join('');
-            }
-        });
 
         // Handle send button
         sendButton.addEventListener('click', sendMessage);
@@ -141,10 +171,8 @@
                 const message = messageInput.value.trim();
                 if (message) {
                     addMessage('Nihal', message, 'nihal-bubble');
-                    history.push(`Nihal: ${message}`);
                 }
                 addMessage('Nihal', 'Image uploaded', 'nihal-bubble');
-                history.push(`Nihal: Image uploaded`);
                 messageInput.value = '';
                 imageInput.value = '';
 
@@ -159,7 +187,6 @@
 
             // Display user message
             addMessage('Nihal', message, 'nihal-bubble');
-            history.push(`Nihal: ${message}`);
             messageInput.value = '';
             imageInput.value = '';
 
@@ -177,6 +204,9 @@
             try {
                 const response = await fetch('/chat', {
                     method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer MySecretKey123' // Replace with your secret key
+                    },
                     body: formData
                 });
 
@@ -195,7 +225,6 @@
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) {
-                        history.push(`Gemma: ${fullResponse}`);
                         currentBotMessage = null;
                         break;
                     }
@@ -222,10 +251,8 @@
                 if (currentBotMessage) {
                     currentBotMessage.textContent = `Gemma: Error: ${error.message}`;
                     currentBotMessage.classList.add('text-red-500');
-                    history.push(`Gemma: Error: ${error.message}`);
                 } else {
                     addMessage('Gemma', `Error: ${error.message}`, 'gemma-bubble', 'text-red-500');
-                    history.push(`Gemma: Error: ${error.message}`);
                 }
                 currentBotMessage = null;
             }
